@@ -1,9 +1,13 @@
 <script setup>
-// App.vue 现在不需要逻辑，它只是个壳子
+import { ElConfigProvider } from 'element-plus'
+// 引入中文包
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
 </script>
 
 <template>
-  <router-view></router-view>
+  <el-config-provider :locale="zhCn">
+    <router-view />
+  </el-config-provider>
 </template>
 
 <style>
