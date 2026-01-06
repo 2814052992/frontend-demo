@@ -56,7 +56,13 @@ const handleLogin = () => {
   }).then(res => {
       if (res.data.code === 200) {
         ElMessage.success('登录成功')
-        localStorage.setItem('user_info', JSON.stringify(res.data.data))
+
+        // 后端现在返回结构变了：res.data.data 里面包含了 { token: "...", user: {...} }
+        const resultData = res.data.data;
+        // 分别存储 Token 和 用户信息
+        localStorage.setItem('token', resultData.token); // 单独存 Token，以后发请求用
+        localStorage.setItem('user_info', JSON.stringify(resultData.user)); // 存用户信息，用来展示头像昵称
+
         router.push('/dashboard')
       } else ElMessage.error(res.data.msg)
     })
@@ -136,7 +142,7 @@ const getBtnText = () => {
         <el-carousel-item v-for="(img, index) in carouselImages" :key="index">
           <div class="carousel-image" :style="{ backgroundImage: `url(${img})` }">
             <div class="brand-text">
-              <p>自拍图，要图联系我  QQ：2814052992</p>
+              <p>© 2026 个人数字空间，保留所有权利。 | 备案号待填</p>
             </div>
           </div>
         </el-carousel-item>

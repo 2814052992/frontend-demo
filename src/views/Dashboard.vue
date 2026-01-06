@@ -90,9 +90,9 @@ const goHome = () => router.push('/dashboard')
         </el-main>
 
         <el-footer class="normal-footer">
-          <p>© 2026 Personal Digital Space. All rights reserved.</p>
+          <p>© 2026 个人数字空间，保留所有权利。</p>
           <el-divider direction="vertical" />
-          <p class="icp-info">京ICP备88888888号-1</p>
+          <p class="icp-info">备案号待填</p>
         </el-footer>
       </div>
     </div>

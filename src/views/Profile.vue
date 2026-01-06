@@ -2,7 +2,7 @@
 import { reactive, onMounted } from 'vue'
 import { User, Message, Iphone, ChatDotRound, ChatLineRound, Calendar, Plus, Male, Female } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import request from '../utils/request'
 
 const form = reactive({
   username: '', 
@@ -58,7 +58,7 @@ const handleSave = () => {
   const submitData = { ...form }
   if (submitData.age === '') submitData.age = null;
 
-  axios.post(`http://localhost:8080/api/user/update?username=${form.username}`, submitData)
+  request.post(`/api/user/update?username=${form.username}`, submitData)
     .then(res => {
       if (res.data.code === 200) {
         ElMessage.success('个人信息保存成功！')
