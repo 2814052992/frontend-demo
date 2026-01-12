@@ -2,7 +2,7 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import request from '../utils/request'
 import { User, Lock, ArrowRight, Message, Key, RefreshRight } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -22,7 +22,7 @@ const bg11 = new URL('../assets/images/11.jpg', import.meta.url).href
 const bg12 = new URL('../assets/images/12.jpg', import.meta.url).href
 const bg13 = new URL('../assets/images/13.jpg', import.meta.url).href
 
-const carouselImages = [bg1, bg2, bg3, bg4, bg5, bg6, bg7, bg8, bg9, bg10, bg11, bg12, bg13]
+const carouselImages = [bg1,bg2, bg3, bg4, bg5, bg6, bg7, bg8, bg9, bg10, bg11, bg12, bg13]
 
 // === 模式控制 ===
 // mode 只有三个值: 'login' (登录), 'register' (注册), 'forgot' (找回密码)
@@ -50,7 +50,7 @@ const handleLogin = () => {
   if (!formData.username || !formData.password) return ElMessage.warning('请输入账号和密码')
   
   isLoading.value = true
-  axios.post('http://localhost:8080/api/login', {
+  request.post('/login', {
     username: formData.username,
     password: formData.password
   }).then(res => {
@@ -78,7 +78,7 @@ const handleRegister = () => {
   if (formData.password !== formData.confirmPassword) return ElMessage.warning('两次密码不一致')
   
   isLoading.value = true
-  axios.post('http://localhost:8080/api/register', {
+  request.post('/register', {
     username: formData.username,
     password: formData.password,
     confirmPassword: formData.confirmPassword,
@@ -102,7 +102,7 @@ const handleResetPassword = () => {
   }
 
   isLoading.value = true
-  axios.post('http://localhost:8080/api/reset-password', {
+  request.post('/reset-password', {
     username: formData.username,
     email: formData.email,
     newPassword: formData.newPassword

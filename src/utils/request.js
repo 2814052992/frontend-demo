@@ -5,7 +5,10 @@ import { ElMessage } from 'element-plus'
 // 这就像是专门为你开通的一条"VIP通道"
 const request = axios.create({
     // 基础地址：以后你发请求只需要写 '/api/login'，它会自动拼上前面的
-    baseURL: 'http://localhost:8080', 
+    //本地开发
+    baseURL: 'http://localhost:8081/api',
+    //docker运行 
+    //baseURL: '/api',
     timeout: 5000 // 请求超时时间：5秒，如果5秒后端没反应就报错
 })
 

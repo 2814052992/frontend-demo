@@ -58,7 +58,7 @@ const handleSave = () => {
   const submitData = { ...form }
   if (submitData.age === '') submitData.age = null;
 
-  request.post(`/api/user/update?username=${form.username}`, submitData)
+  request.post(`/user/update?username=${form.username}`, submitData)
     .then(res => {
       if (res.data.code === 200) {
         ElMessage.success('个人信息保存成功！')
