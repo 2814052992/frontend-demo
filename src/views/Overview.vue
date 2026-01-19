@@ -35,7 +35,6 @@ const mockList = ref(new Array(20).fill('').map((_, index) => ({
 </template>
 
 <style scoped>
-/* 样式直接复用之前的 */
 .content-wrapper { width: 100%; max-width: 1400px; padding: 40px; margin: 0 auto; }
 .welcome-header { margin-bottom: 30px; }
 .welcome-header h1 { font-size: 32px; margin-bottom: 5px; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }

@@ -35,22 +35,21 @@ onMounted(() => {
   form.bio = user.bio
 })
 
-// === 核心修复：图片转 Base64 ===
+// 图片转 Base64
 const handleAvatarChange = (uploadFile) => {
-  // 1. 限制大小 (比如限制 2MB)，防止 Base64 太长把浏览器卡死
+  // 限制大小
   const isLt2M = uploadFile.raw.size / 1024 / 1024 < 2
   if (!isLt2M) {
     ElMessage.error('头像图片大小不能超过 2MB!')
     return
   }
 
-  // 2. 使用 FileReader 读取图片内容
+  // 使用 FileReader 读取图片内容
   const reader = new FileReader()
   reader.readAsDataURL(uploadFile.raw) // 读成 Base64
   reader.onload = () => {
-    // 3. 读取成功，把长长的字符串赋值给 form.avatar
-    form.avatar = reader.result 
-    // 这里的 reader.result 就是 "data:image/png;base64,....." 
+    // 读取成功
+    form.avatar = reader.result  
   }
 }
 
@@ -63,10 +62,10 @@ const handleSave = () => {
       if (res.data.code === 200) {
         ElMessage.success('个人信息保存成功！')
         
-        // 1. 更新缓存
+        // 更新缓存
         localStorage.setItem('user_info', JSON.stringify(res.data.data))
         
-        // 2. 【关键修复】发射信号！通知 Dashboard 刷新
+        // 通知 Dashboard 刷新
         window.dispatchEvent(new Event('userInfoUpdated'))
         
       } else {
@@ -180,7 +179,6 @@ const handleSave = () => {
 </template>
 
 <style scoped>
-/* 样式复用，无需改动 */
 .content-wrapper { width: 100%; max-width: 900px; padding: 40px; margin: 0 auto; }
 .welcome-header { margin-bottom: 30px; text-align: center; }
 .welcome-header h1 { font-size: 32px; margin-bottom: 5px; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }
@@ -197,13 +195,12 @@ const handleSave = () => {
 .avatar-wrapper {
   position: relative; 
   
-  /* 修改点：宽高从 100px 改为 150px */
   width: 150px; 
   height: 150px; 
   
   border-radius: 50%; 
   overflow: hidden;
-  border: 4px solid rgba(16, 185, 129, 0.3); /* 边框也加粗一点到 4px */
+  border: 4px solid rgba(16, 185, 129, 0.3);
   cursor: pointer; 
   transition: all 0.3s;
 }

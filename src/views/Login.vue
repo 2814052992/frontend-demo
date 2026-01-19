@@ -1,44 +1,271 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { reactive, ref ,onMounted,onUnmounted} from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import request from '../utils/request'
-import { User, Lock, ArrowRight, Message, Key, RefreshRight } from '@element-plus/icons-vue'
+import { User, Lock, ArrowRight, Message, Key, RefreshRight , Timer} from '@element-plus/icons-vue'
+import * as THREE from 'three'
+
+
 
 const router = useRouter()
 
-// 图片资源
-const bg1  = new URL('../assets/images/1.jpg', import.meta.url).href
-const bg2  = new URL('../assets/images/2.jpg', import.meta.url).href
-const bg3  = new URL('../assets/images/3.jpg', import.meta.url).href
-const bg4  = new URL('../assets/images/4.jpg', import.meta.url).href
-const bg5  = new URL('../assets/images/5.jpg', import.meta.url).href
-const bg6  = new URL('../assets/images/6.jpg', import.meta.url).href
-const bg7  = new URL('../assets/images/7.jpg', import.meta.url).href
-const bg8  = new URL('../assets/images/8.jpg', import.meta.url).href
-const bg9  = new URL('../assets/images/9.jpg', import.meta.url).href
-const bg10 = new URL('../assets/images/10.jpg', import.meta.url).href
-const bg11 = new URL('../assets/images/11.jpg', import.meta.url).href
-const bg12 = new URL('../assets/images/12.jpg', import.meta.url).href
-const bg13 = new URL('../assets/images/13.jpg', import.meta.url).href
+// 3D 场景变量
+const threeContainer = ref(null) // 绑定 HTML 里的 div
+let scene, camera, renderer, mesh, particles
+let animationId = null // 用于停止动画
+let morphTimer = null
 
-const carouselImages = [bg1,bg2, bg3, bg4, bg5, bg6, bg7, bg8, bg9, bg10, bg11, bg12, bg13]
+// 初始化 3D 场景
+const initThree = () => {
+  const container = threeContainer.value
+  if (!container) return
 
-// === 模式控制 ===
+  const width = container.clientWidth
+  const height = container.clientHeight
+
+  // 场景
+  scene = new THREE.Scene()
+  scene.fog = new THREE.FogExp2(0x000000, 0.002)
+
+  // 相机
+  camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
+  camera.position.z = 5
+
+  // 渲染器
+  renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
+  renderer.setSize(width, height)
+  renderer.setPixelRatio(window.devicePixelRatio)
+  container.appendChild(renderer.domElement)
+
+  // 创建几何体
+  const geometries = [
+    // 1. 晶体球
+    new THREE.IcosahedronGeometry(2.2, 0),    
+    
+    // 2.量子扭结 (Torus Knot)
+    new THREE.TorusKnotGeometry(1.5, 0.25, 120, 20), 
+    
+    // 3. 金字塔
+    new THREE.TetrahedronGeometry(2.5),       
+    
+    // 4.足球烯
+    new THREE.DodecahedronGeometry(2.2),      
+    
+    // 5. 数据立方
+    new THREE.BoxGeometry(2.5, 2.5, 2.5),     
+    
+    // 6. 守护菱形
+    new THREE.OctahedronGeometry(2.2, 0),     
+    
+    // 7. 能量环
+    new THREE.TorusGeometry(1.8, 0.5, 16, 50) 
+  ]
+  
+  const material = new THREE.MeshBasicMaterial({ 
+    color: 0x10b981, 
+    wireframe: true,
+    transparent: true,
+    opacity: 0.5
+  })
+  
+  // 初始化物体，默认先显示第一个
+  mesh = new THREE.Mesh(geometries[0], material)
+  scene.add(mesh)
+
+ // 粒子星空
+  const particlesGeometry = new THREE.BufferGeometry()
+  const particlesCount = 1800 // 数量
+  const posArray = new Float32Array(particlesCount * 3)
+  
+  for(let i = 0; i < particlesCount * 3; i++) {
+    // 范围
+    posArray[i] = (Math.random() - 0.5) * 40 
+  }
+  particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3))
+
+  const getTexture = () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 32
+    canvas.height = 32
+    const ctx = canvas.getContext('2d')
+    const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16)
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)')
+    gradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.8)')
+    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.2)')
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, 32, 32)
+    const texture = new THREE.CanvasTexture(canvas)
+    return texture
+  }
+
+  const particlesMaterial = new THREE.PointsMaterial({
+    size: 0.2,            // 粒子大小
+    color: 0x10b981,      // 绿色
+    map: getTexture(),    // 挂载圆形贴图
+    transparent: true,
+    opacity: 0.9,         // 亮度提高
+    sizeAttenuation: true,// 远小近大
+    depthWrite: false,    // 去除黑边
+    blending: THREE.AdditiveBlending // 光叠加模式，粒子重叠会变亮
+  })
+  
+  particles = new THREE.Points(particlesGeometry, particlesMaterial)
+  scene.add(particles)
+
+  // 鼠标视差
+  let mouseX = 0, mouseY = 0
+  window.addEventListener('mousemove', (event) => {
+    mouseX = (event.clientX / window.innerWidth) * 2 - 1
+    mouseY = -(event.clientY / window.innerHeight) * 2 + 1
+  })
+
+  // 变换逻辑控制
+  let geometryIndex = 0
+  let isMorphing = false
+  
+  // 清除可能存在的旧定时器
+  if (morphTimer) clearInterval(morphTimer)
+  // 每 3 秒触发一次“变形”
+  morphTimer = setInterval(() => {
+    isMorphing = true
+  }, 3000)
+
+  // 动画循环
+  const animate = () => {
+    animationId = requestAnimationFrame(animate)
+
+    // A. 持续旋转
+    if (mesh) {
+      mesh.rotation.x += 0.001
+      mesh.rotation.y += 0.002
+    }
+
+    // B. 变换形状逻辑: 缩小 -> 换形状 -> 放大
+    if (isMorphing && mesh) {
+      // 缩小
+      mesh.scale.x -= 0.05
+      mesh.scale.y -= 0.05
+      mesh.scale.z -= 0.05
+
+      // 缩到看不见时，切换形状
+      if (mesh.scale.x <= 0.01) {
+        geometryIndex = (geometryIndex + 1) % geometries.length
+        mesh.geometry = geometries[geometryIndex] // 偷梁换柱
+        isMorphing = false // 停止缩小，转为自然放大
+      }
+    } else if (mesh) {
+      // 弹性放大回原状
+      if (mesh.scale.x < 1) {
+        // lerp 插值让变大更平滑
+        mesh.scale.x += (1 - mesh.scale.x) * 0.1
+        mesh.scale.y += (1 - mesh.scale.y) * 0.1
+        mesh.scale.z += (1 - mesh.scale.z) * 0.1
+      }
+    }
+
+    // C. 粒子旋转
+    if (particles) particles.rotation.y += 0.001
+    
+    // D. 视差跟随
+    camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.05
+    camera.position.y += (mouseY * 0.5 - camera.position.y) * 0.05
+    camera.lookAt(scene.position)
+
+    renderer.render(scene, camera)
+  }
+  animate()
+
+  // 窗口适配
+  window.addEventListener('resize', () => {
+      if(!container) return
+      const newWidth = container.clientWidth
+      const newHeight = container.clientHeight
+      camera.aspect = newWidth / newHeight
+      camera.updateProjectionMatrix()
+      renderer.setSize(newWidth, newHeight)
+  })
+}
+
+// 生命周期挂载
+onMounted(() => {
+  initThree() // 页面加载完启动 3D
+})
+
+onUnmounted(() => {
+  // 页面销毁时清理
+  cancelAnimationFrame(animationId)
+  clearInterval(morphTimer)
+  if (renderer) renderer.dispose()
+})
+
+
+// 模式控制
 // mode 只有三个值: 'login' (登录), 'register' (注册), 'forgot' (找回密码)
 const mode = ref('login') 
 const isLoading = ref(false)
 
-// === 表单数据 ===
+// 表单数据
 const formData = reactive({
   username: '',
   password: '',
   confirmPassword: '', // 注册用
   email: '',           // 注册 & 找回密码用
-  newPassword: ''      // 找回密码用
+  newPassword: '',     // 找回密码用
+  code:''              // 验证码
 })
 
-// === 核心逻辑分发 ===
+// 验证码倒计时逻辑
+const countdown = ref(0) // 倒计时秒数
+const isEmailSending = ref(false) // 正在发送的状态锁
+let timer = null
+
+const handleSendCode = () => {
+  if (!formData.email) return ElMessage.warning('请先输入邮箱')
+  // 正则验证邮箱格式
+  if (!/^\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$/.test(formData.email)) {
+    return ElMessage.warning('邮箱格式不正确')
+  }
+
+  // 防抖检查：如果正在倒计时，或者正在发送中，直接忽略
+  if (countdown.value > 0 || isEmailSending.value) return
+
+  // 立刻上锁，按钮变灰
+  isEmailSending.value = true
+
+  // 发送请求
+  // 参数1: URL
+  // 参数2: data
+  // 参数3: config (设置超时时间为 30秒)
+  request.post(`/send-code?email=${formData.email}`, {}, { timeout: 30000 })
+    .then(res => {
+      console.log("后端返回：", res)
+      if (res.data.code === 200) {
+        ElMessage.success('验证码已发送，请查收邮件')
+        
+        // 开始倒计时 60秒
+        countdown.value = 60
+        timer = setInterval(() => {
+          countdown.value--
+          if (countdown.value <= 0) clearInterval(timer)
+        }, 1000)
+      } else {
+        ElMessage.error(res.data.msg)
+      }
+    })
+    .catch(err => {
+      console.error(err) // 打印错误方便调试
+      ElMessage.error('发送失败，请检查网络或稍后再试')
+    })
+    .finally(() => {
+      // 不管成功还是失败，请求结束了就把“发送锁”解开
+      // 注意：如果成功了，countdown > 0 依然会让按钮保持不可点状态，逻辑是完美的
+      isEmailSending.value = false
+    })
+}
+
+// 核心逻辑分发
 const handleSubmit = () => {
   if (mode.value === 'login') handleLogin()
   else if (mode.value === 'register') handleRegister()
@@ -57,7 +284,6 @@ const handleLogin = () => {
       if (res.data.code === 200) {
         ElMessage.success('登录成功')
 
-        // 后端现在返回结构变了：res.data.data 里面包含了 { token: "...", user: {...} }
         const resultData = res.data.data;
         // 分别存储 Token 和 用户信息
         localStorage.setItem('token', resultData.token); // 单独存 Token，以后发请求用
@@ -82,7 +308,8 @@ const handleRegister = () => {
     username: formData.username,
     password: formData.password,
     confirmPassword: formData.confirmPassword,
-    email: formData.email
+    email: formData.email,
+    code: formData.code
   }).then(res => {
       if (res.data.code === 200) {
         ElMessage.success('注册成功，请登录')
@@ -97,15 +324,16 @@ const handleRegister = () => {
 
 // 3. 找回密码
 const handleResetPassword = () => {
-  if (!formData.username || !formData.email || !formData.newPassword) {
-    return ElMessage.warning('请填写账号、邮箱和新密码')
+  if (!formData.username || !formData.email || !formData.newPassword || !formData.code) {
+    return ElMessage.warning('请填写所有必填项（含验证码）')
   }
 
   isLoading.value = true
   request.post('/reset-password', {
     username: formData.username,
     email: formData.email,
-    newPassword: formData.newPassword
+    newPassword: formData.newPassword,
+    code: formData.code
   }).then(res => {
     if (res.data.code === 200) {
         ElMessage.success('密码重置成功，请登录')
@@ -137,16 +365,11 @@ const getBtnText = () => {
 
 <template>
   <div class="login-container">
-    <div class="left-side">
-      <el-carousel trigger="click" height="100vh" arrow="never" :interval="4000">
-        <el-carousel-item v-for="(img, index) in carouselImages" :key="index">
-          <div class="carousel-image" :style="{ backgroundImage: `url(${img})` }">
-            <div class="brand-text">
-              <p>© 2026 个人数字空间，保留所有权利。 | 备案号待填</p>
-            </div>
-          </div>
-        </el-carousel-item>
-      </el-carousel>
+    <div class="left-side" ref="threeContainer">
+      <div class="brand-text">
+        <h1>数字空间</h1>
+        <p>© 2026 个人数字空间 | 鄂ICP备2026000738号-1</p>
+      </div>
     </div>
 
     <div class="right-side">
@@ -175,6 +398,28 @@ const getBtnText = () => {
                 :prefix-icon="Message"
                 class="glass-input"
               />
+            </el-form-item>
+
+            <el-form-item v-if="mode !== 'login'">
+              <div class="code-container">
+                <el-input 
+                  v-model="formData.code" 
+                  placeholder="请输入6位验证码" 
+                  :prefix-icon="Timer"
+                  class="glass-input"
+                  style="flex: 1" 
+                />
+
+                <el-button 
+                  type="primary" 
+                  class="send-btn"
+                  @click="handleSendCode"
+                  :disabled="countdown > 0 || isEmailSending"
+                >
+                  {{ isEmailSending ? '发送中...' : (countdown > 0 ? `${countdown}s后可重发` : '获取验证码') }}
+                </el-button>
+
+              </div>
             </el-form-item>
             
             <el-form-item v-if="mode !== 'forgot'">
@@ -236,19 +481,20 @@ const getBtnText = () => {
 </template>
 
 <style scoped>
-/* 样式保持不变 */
 .login-container {
   display: flex;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: radial-gradient(circle at 80% 50%, #15523d 0%, #06291e 40%, #000000 100%);
+  background-color: #000;
+  background-image: radial-gradient(circle at 50% 50%, #11221c 0%, #000000 100%);
 }
 
 .left-side {
   flex: 1;
   position: relative;
   background: transparent;
+  overflow: hidden; 
 }
 
 .carousel-image {
@@ -272,10 +518,12 @@ const getBtnText = () => {
 }
 
 .brand-text h1 {
-  font-size: 48px;
-  margin-bottom: 15px;
-  font-weight: 300;
-  letter-spacing: 4px;
+  font-size: 56px;
+  margin-bottom: 10px;
+  font-weight: 200;
+  letter-spacing: 8px;
+  font-family: 'Arial', sans-serif;
+  text-shadow: 0 0 20px rgba(16, 185, 129, 0.4); /* 发光效果 */
 }
 
 .right-side {
@@ -370,5 +618,29 @@ const getBtnText = () => {
 
 .footer-links span:hover {
   color: #10b981;
+}
+
+.code-container {
+  display: flex;
+  width: 100%;
+  gap: 15px; /* 输入框和按钮之间的间距 */
+  align-items: center;
+}
+
+.send-btn {
+  height: 45px; /* 和输入框一样高 */
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #10b981;
+  font-weight: 600;
+}
+.send-btn:hover {
+  background: rgba(16, 185, 129, 0.4);
+  color: white;
+}
+.send-btn.is-disabled {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
 }
 </style>

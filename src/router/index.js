@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/Login.vue'
 import Dashboard from '../views/Dashboard.vue'
-import Overview from '../views/Overview.vue' // 新导入
-import Profile from '../views/Profile.vue'   // 新导入
+import Overview from '../views/Overview.vue'
+import Profile from '../views/Profile.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -20,7 +20,7 @@ const router = createRouter({
       // 父路由
       path: '/dashboard',
       component: Dashboard,
-      // 【关键】子路由配置
+      // 子路由配置
       children: [
         {
           // 当访问 /dashboard 时，默认显示 Overview
